@@ -1,0 +1,16 @@
+# Credentials and secrets
+**/appsettings.json
+**/appsettings.Development.json
+**/epic_private_key.pem
+**/GenerateKeys/
+
+# Build output
+**/bin/
+**/obj/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db

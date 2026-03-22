@@ -1,0 +1,6 @@
+@Chartnote.Fhir.Api_HostAddress = http://localhost:5235
+
+GET {{Chartnote.Fhir.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
