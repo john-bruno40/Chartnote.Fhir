@@ -26,4 +26,21 @@ public class PatientController : ControllerBase
         if (patient is null) return NotFound();
         return Ok(patient);
     }
+
+    [HttpGet("search/{teamId}")]
+    public async Task<IActionResult> SearchPatients(
+        string teamId,
+        [FromQuery] string? family,
+        [FromQuery] string? given,
+        [FromQuery] DateOnly? birthdate,
+        CancellationToken ct)
+    {
+        var patients = await _fhirService.SearchPatientsAsync(
+            teamId, family, given, birthdate, ct);
+
+        if (patients.Count == 0) 
+            return NotFound(new { message = "No patients found." });
+        return Ok(patients);
+    }
 }
+

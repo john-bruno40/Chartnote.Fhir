@@ -27,7 +27,8 @@ public class ScheduleController : ControllerBase
         var schedule = await _fhirService.GetDailyScheduleAsync(
             teamId, patientId, date, ct);
 
-        if (schedule.Count == 0) return NotFound("No appointments found.");
+        if (schedule.Count == 0) 
+            return NotFound(new { message = "No appointments found." });
         return Ok(schedule);
     }
 }

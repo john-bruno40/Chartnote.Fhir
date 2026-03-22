@@ -2,6 +2,7 @@
 **/appsettings.json
 **/appsettings.Development.json
 **/epic_private_key.pem
+**/epic_public_key.pem
 **/GenerateKeys/
 
 # Build output
@@ -14,3 +15,4 @@
 # OS files
 .DS_Store
 Thumbs.db
+

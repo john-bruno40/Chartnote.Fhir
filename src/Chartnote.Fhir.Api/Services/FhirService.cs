@@ -103,6 +103,51 @@ public class FhirService
         return MapToChartnotePatient(patient, provider.ProviderName);
     }
 
+    public async Task<List<ChartnotePatient>> SearchPatientsAsync(
+        string teamId,
+        string? familyName = null,
+        string? givenName = null,
+        DateOnly? dateOfBirth = null,
+        CancellationToken ct = default)
+    {
+        var provider = _providerFactory.GetProviderForTeam(teamId);
+        var client   = await provider.GetAuthenticatedClientAsync(ct);
+
+        var query = new SearchParams().LimitTo(20);
+
+        if (familyName is not null)
+            query.Add("family", familyName);
+        if (givenName is not null)
+            query.Add("given", givenName);
+        if (dateOfBirth.HasValue)
+            query.Add("birthdate", dateOfBirth.Value.ToString("yyyy-MM-dd"));
+
+        _logger.LogInformation(
+            "[{Provider}] Searching patients family={Family} given={Given}",
+            provider.ProviderName, familyName, givenName);
+
+        Bundle? bundle;
+        try
+        {
+            bundle = await client.SearchAsync<Patient>(query);
+        }
+        catch (FhirOperationException ex)
+        {
+            _logger.LogError(ex, "FHIR Patient search failed");
+            throw;
+        }
+
+        var results = new List<ChartnotePatient>();
+        foreach (var entry in bundle?.Entry ?? [])
+        {
+            if (entry.Resource is not Patient patient) continue;
+            results.Add(MapToChartnotePatient(patient, provider.ProviderName));
+        }
+
+        _logger.LogInformation("Found {Count} patients", results.Count);
+        return results;
+    }
+
     private static ChartnotePatient MapToChartnotePatient(
         Patient patient, string ehrSource)
     {
@@ -130,4 +175,100 @@ public class FhirService
             LastSyncedAt  = DateTime.UtcNow
         };
     }
+
+    public async Task<List<object>> SearchEncountersAsync(
+        string teamId,
+        string patientFhirId,
+        CancellationToken ct = default)
+    {
+        var provider = _providerFactory.GetProviderForTeam(teamId);
+        var client   = await provider.GetAuthenticatedClientAsync(ct);
+
+        _logger.LogInformation(
+            "[{Provider}] Searching encounters for patient {Id}",
+            provider.ProviderName, patientFhirId);
+
+        var query = new SearchParams()
+            .LimitTo(50);
+        query.Add("patient", patientFhirId);
+
+        Bundle? bundle;
+        try
+        {
+            bundle = await client.SearchAsync<Encounter>(query);
+        }
+        catch (FhirOperationException ex)
+        {
+            _logger.LogError(ex, "FHIR Encounter search failed");
+            throw;
+        }
+
+        var results = new List<object>();
+        foreach (var entry in bundle?.Entry ?? [])
+        {
+            if (entry.Resource is not Encounter enc) continue;
+            results.Add(new
+            {
+                encounterFhirId = enc.Id,
+                status          = enc.Status?.ToString(),
+                type            = enc.Type?.FirstOrDefault()?.Text,
+                periodStart     = enc.Period?.Start,
+                periodEnd       = enc.Period?.End,
+                reasonCode      = enc.ReasonCode?.FirstOrDefault()?.Text,
+                ehrSource       = provider.ProviderName
+            });
+        }
+
+        _logger.LogInformation("Found {Count} encounters", results.Count);
+        return results;
+    }
+
+    public async Task<List<object>> SearchPractitionersAsync(
+        string teamId,
+        string? familyName = null,
+        string? givenName  = null,
+        CancellationToken ct = default)
+    {
+        var provider = _providerFactory.GetProviderForTeam(teamId);
+        var client   = await provider.GetAuthenticatedClientAsync(ct);
+
+        _logger.LogInformation(
+            "[{Provider}] Searching practitioners family={Family}",
+            provider.ProviderName, familyName);
+
+        var query = new SearchParams().LimitTo(20);
+        if (familyName is not null) query.Add("family", familyName);
+        if (givenName  is not null) query.Add("given",  givenName);
+
+        Bundle? bundle;
+        try
+        {
+            bundle = await client.SearchAsync<Practitioner>(query);
+        }
+        catch (FhirOperationException ex)
+        {
+            _logger.LogError(ex, "FHIR Practitioner search failed");
+            throw;
+        }
+
+        var results = new List<object>();
+        foreach (var entry in bundle?.Entry ?? [])
+        {
+            if (entry.Resource is not Practitioner prac) continue;
+            var name = prac.Name.FirstOrDefault();
+            results.Add(new
+            {
+                practitionerFhirId = prac.Id,
+                familyName         = name?.Family ?? "Unknown",
+                givenName          = name?.Given?.FirstOrDefault() ?? "Unknown",
+                ehrSource          = provider.ProviderName
+            });
+        }
+
+        _logger.LogInformation("Found {Count} practitioners", results.Count);
+        return results;
+    }
+
+    
+
 }
